@@ -23,7 +23,7 @@ const EXCLUDED_DOC_IDS = new Set(['docs/home']);
 export default function LastUpdatedDate(): ReactNode {
   const {i18n} = useDocusaurusContext();
 
-  let metadata: {id: string; lastUpdatedAt?: number} | undefined;
+  let metadata: {id: string; lastUpdatedAt?: number; source?: string} | undefined;
   try {
     metadata = useDoc().metadata;
   } catch {
@@ -46,6 +46,15 @@ export default function LastUpdatedDate(): ReactNode {
     },
   ).format(atDate);
 
+  // Source file in the GitHub repository: metadata.source is the
+  // "@site/<relative path>" alias produced by the docs plugin.
+  const sourcePath = metadata.source?.startsWith('@site/')
+    ? metadata.source.slice('@site/'.length)
+    : metadata.source;
+  const githubUrl = sourcePath
+    ? `https://github.com/numspot/docs/blob/main/${sourcePath}`
+    : undefined;
+
   return (
     <p className="doc-last-updated">
       <Translate
@@ -60,6 +69,23 @@ export default function LastUpdatedDate(): ReactNode {
         }}>
         {'Reviewed on {date}'}
       </Translate>
+      {sourcePath && (
+        <>
+          {' · '}
+          <a
+            className="doc-github-link"
+            href={`https://github.com/numspot/docs/blob/main/${sourcePath}`}
+            target="_blank"
+            rel="noopener noreferrer">
+            <Translate
+              id="theme.docs.viewOnGithub"
+              description="Link to the page source file on GitHub, next to the review date"
+            >
+              {'View on GitHub'}
+            </Translate>
+          </a>
+        </>
+      )}
     </p>
   );
 }
