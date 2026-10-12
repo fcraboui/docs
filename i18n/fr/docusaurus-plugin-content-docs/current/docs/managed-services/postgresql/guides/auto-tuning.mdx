@@ -2,6 +2,9 @@
 title: Auto-tuning PostgreSQL - PostgreSQL managé
 sidebar_label: Configuration automatique des paramètres PostgreSQL (Auto-tuning)
 sidebar_position: 4
+description: Réglage automatique des paramètres PostgreSQL (mémoire, requêtes parallèles, autovacuum, stockage, WAL) et limites de connexions des clusters managés (max_connections et pooler PgBouncer intégré).
+last_update:
+  date: 2026-10-12
 draft: false
 ---
 
@@ -64,7 +67,29 @@ Ces paramètres restent constants quel que soit le dimensionnement du cluster :
 
 - `wal_compression` : lz4 ;
 - `jit` : off ;
-- `huge_pages` : off.
+- `huge_pages` : off ;
+- `max_connections` : 100 par instance.
+
+## Limites de connexions
+
+`max_connections` est fixé à **100** par instance, quel que soit le dimensionnement du cluster : il ne fait pas partie de l'auto-tuning. Trois emplacements sont réservés à la plateforme (`superuser_reserved_connections` = 3), laissant 97 connexions disponibles pour les clients sur chaque instance.
+
+Toutes les connexions clientes passent par PgBouncer, un pooler de connexions déployé automatiquement devant chaque [cluster PostgreSQL](/docs/managed-services/postgresql/concepts/) :
+
+| Paramètre | Valeur | Description |
+|-----------|--------|-------------|
+| Mode de pooling | `session` | Un client conserve sa connexion serveur pendant toute la session |
+| Réplicas PgBouncer | 3 | Trois instances de pooler identiques derrière le point de connexion |
+| `max_client_conn` | 100 par réplique | Nombre maximum de connexions clientes simultanées (300 à l'échelle du cluster) |
+| `default_pool_size` | 20 par pool et par réplique | Nombre maximum de sessions actives simultanées par base et utilisateur (60 à l'échelle du cluster par pool) |
+| `client_idle_timeout` | 600 s | Les connexions clientes inactives sont fermées après 10 minutes |
+
+Conséquences pour la conception des applications :
+
+- un cluster accepte jusqu'à 300 connexions clientes simultanées (3 × 100 par réplique PgBouncer) ;
+- les connexions mises en pool s'exécutent toujours sur l'instance primaire (point d'accès read-write) : les réplicas de lecture n'ajoutent pas de capacité de connexion ;
+- au-delà de 60 sessions actives simultanées (3 × 20 par pool), les clients supplémentaires sont mis en file d'attente sur PgBouncer jusqu'à la libération d'une connexion serveur — les transactions longues et les sessions inactives dans une transaction prolongent l'attente ;
+- pour éviter les timeouts de file d'attente, fermez les connexions inactives et dimensionnez les pools côté client en conséquence : un pool borné de quelques dizaines de connexions par instance applicative est recommandé.
 
 ## Paramètres PostgreSQL
 

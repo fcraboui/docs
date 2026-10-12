@@ -1,6 +1,16 @@
 {
   "entries": [
     {
+      "service": "PostgreSQL",
+      "status": "changed",
+      "date": "2026-10-12",
+      "title": "Limites de connexions PostgreSQL documentées",
+      "description": "La page auto-tuning documente désormais les limites de connexions des clusters PostgreSQL managés : max_connections fixé à 100 par instance avec 3 emplacements réservés à la plateforme, toutes les connexions clientes passant par le pooler PgBouncer intégré (3 réplicas, mode session), jusqu'à 300 connexions clientes simultanées (max_client_conn de 100 par réplique) et 60 sessions actives simultanées (default_pool_size de 20 par base et utilisateur), avec fermeture des connexions clientes inactives après 10 minutes.",
+      "components": [
+        "docs"
+      ]
+    },
+    {
       "service": "IAM",
       "status": "added",
       "date": "2026-10-07",
