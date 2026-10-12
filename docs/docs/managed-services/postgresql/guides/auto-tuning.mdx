@@ -2,6 +2,9 @@
 title: PostgreSQL Auto-tuning - Managed PostgreSQL
 sidebar_label: Automatic configuration of PostgreSQL parameters (Auto-tuning)
 sidebar_position: 4
+description: Automatic tuning of PostgreSQL parameters (memory, parallel queries, autovacuum, storage, WAL) and connection limits of managed clusters (max_connections and built-in PgBouncer pooling).
+last_update:
+  date: 2026-10-12
 draft: false
 ---
 
@@ -64,7 +67,29 @@ These parameters remain constant regardless of the cluster sizing:
 
 - `wal_compression`: lz4;
 - `jit`: off;
-- `huge_pages`: off.
+- `huge_pages`: off;
+- `max_connections`: 100 per instance.
+
+## Connection limits
+
+`max_connections` is fixed at **100** per instance, regardless of the cluster sizing: it is not part of auto-tuning. Three slots are reserved for the platform (`superuser_reserved_connections` = 3), leaving 97 for client connections on each instance.
+
+All client connections go through PgBouncer, a connection pooler automatically deployed in front of every [PostgreSQL cluster](/docs/managed-services/postgresql/concepts/):
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| Pooling mode | `session` | A client keeps its server connection for the whole session |
+| PgBouncer replicas | 3 | Three identical pooler instances behind the connection endpoint |
+| `max_client_conn` | 100 per replica | Maximum concurrent client connections (300 cluster-wide) |
+| `default_pool_size` | 20 per pool and replica | Maximum simultaneously active sessions per database and user (60 cluster-wide per pool) |
+| `client_idle_timeout` | 600 s | Idle client connections are closed after 10 minutes |
+
+Consequences for application design:
+
+- a cluster accepts up to 300 concurrent client connections (3 × 100 per PgBouncer replica);
+- pooled connections always run on the primary instance (read-write endpoint): the read replicas do not add connection capacity;
+- beyond 60 simultaneously active sessions (3 × 20 per pool), additional clients are queued on PgBouncer until a server connection is released — long-running transactions and idle-in-transaction sessions extend the wait;
+- to avoid queue timeouts, close idle connections and size client-side pools accordingly: a bounded pool with a few dozen connections per application instance is recommended.
 
 ## PostgreSQL parameters
 
